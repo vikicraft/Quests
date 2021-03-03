@@ -72,10 +72,16 @@ public class EventInventory implements Listener {
 
                     // return to QMenuCategory (category listing)
                 } else if (Options.CATEGORIES_ENABLED.getBooleanValue() && qMenuQuest.getBackButtonLocation() == event.getSlot()) {
-                    QMenuCategory qMenuCategory = qMenuQuest.getSuperMenu();
-                    buffer.add(event.getWhoClicked().getUniqueId());
-                    event.getWhoClicked().openInventory(qMenuCategory.toInventory(1));
-                    tracker.put(event.getWhoClicked().getUniqueId(), qMenuCategory);
+                    String customBackButtonCommand = plugin.getConfig().getString("options.custom-return-button-command");
+
+                    if (customBackButtonCommand != null)
+                        Bukkit.dispatchCommand(Bukkit.getConsoleSender(), customBackButtonCommand.replace("%player%", event.getWhoClicked().getName())) ;
+                    else {
+                        QMenuCategory qMenuCategory = qMenuQuest.getSuperMenu();
+                        buffer.add(event.getWhoClicked().getUniqueId());
+                        event.getWhoClicked().openInventory(qMenuCategory.toInventory(1));
+                        tracker.put(event.getWhoClicked().getUniqueId(), qMenuCategory);
+                    }
 
                     // handle when player wishes to start a quest by matching the slot they clicked to a predetermined
                     // map which maps quests to slots so you do not have to compare the item stack

@@ -183,6 +183,10 @@ options:
   global-task-configuration-override: false
   # Whether or not the global display configuration will override per-quest display settins
   global-quest-display-configuration-override: false
+  # Show return button even if opening single category from command
+  always-show-return-button: true
+  # Custom command to execute on return button click (leave blank if unused)
+  custom-return-button-command: ""
 
 # This switches up the entire quest system.
 # By enabling daily-quests, players will no longer be presented with the standard Quest GUI.

@@ -273,7 +273,9 @@ public class CommandQuests implements TabExecutor {
                             if (player != null) {
                                 QPlayer qPlayer = plugin.getPlayerManager().getPlayer(player.getUniqueId());
                                 if (qPlayer != null) {
-                                    if (qPlayer.openCategory(category, null, false) == 0) {
+                                    boolean showBackButton = plugin.getConfig().getBoolean("options.always-show-return-button", true);
+
+                                    if (qPlayer.openCategory(category, null, showBackButton) == 0) {
                                         sender.sendMessage(Messages.COMMAND_QUEST_OPENCATEGORY_ADMIN_SUCCESS.getMessage().replace("{player}", player.getName())
                                                 .replace("{category}", category.getId()));
                                     } else {
