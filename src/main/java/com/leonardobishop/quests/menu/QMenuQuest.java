@@ -210,11 +210,16 @@ public class QMenuQuest implements QMenu {
             event.getWhoClicked().openInventory(this.toInventory(currentPage + 1));
 
         } else if (Options.CATEGORIES_ENABLED.getBooleanValue() && backButtonLocation == event.getSlot()) {
-            QMenuCategory qMenuCategory = this.getSuperMenu();
-            controller.getBuffer().add(event.getWhoClicked().getUniqueId());
-            event.getWhoClicked().openInventory(qMenuCategory.toInventory(1));
-            controller.getTracker().put(event.getWhoClicked().getUniqueId(), qMenuCategory);
+            String customBackButtonCommand = plugin.getConfig().getString("options.custom-return-button-command");
 
+            if (customBackButtonCommand != null)
+                Bukkit.dispatchCommand(Bukkit.getConsoleSender(), customBackButtonCommand.replace("%player%", event.getWhoClicked().getName())) ;
+            else {
+                QMenuCategory qMenuCategory = this.getSuperMenu();
+                controller.getBuffer().add(event.getWhoClicked().getUniqueId());
+                event.getWhoClicked().openInventory(qMenuCategory.toInventory(1));
+                controller.getTracker().put(event.getWhoClicked().getUniqueId(), qMenuCategory);
+            }
         } else if (event.getSlot() < pageSize && menuElements.containsKey(event.getSlot() + (((currentPage) - 1) * pageSize))) {
             MenuElement menuElement = menuElements.get(event.getSlot() + ((currentPage - 1) * pageSize));
             if (menuElement instanceof QuestMenuElement) {
