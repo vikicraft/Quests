@@ -3,14 +3,14 @@ package com.leonardobishop.quests.commands;
 import com.leonardobishop.quests.Quests;
 import com.leonardobishop.quests.QuestsConfigLoader;
 import com.leonardobishop.quests.api.enums.QuestStartResult;
-import com.leonardobishop.quests.obj.Messages;
-import com.leonardobishop.quests.obj.Options;
 import com.leonardobishop.quests.player.QPlayer;
 import com.leonardobishop.quests.player.questprogressfile.QuestProgressFile;
 import com.leonardobishop.quests.quests.Category;
 import com.leonardobishop.quests.quests.Quest;
 import com.leonardobishop.quests.quests.Task;
 import com.leonardobishop.quests.quests.tasktypes.TaskType;
+import com.leonardobishop.quests.util.Messages;
+import com.leonardobishop.quests.util.Options;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.OfflinePlayer;
@@ -24,9 +24,23 @@ import org.jetbrains.annotations.Nullable;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.file.*;
+import java.nio.file.FileVisitResult;
+import java.nio.file.FileVisitor;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.nio.file.SimpleFileVisitor;
 import java.nio.file.attribute.BasicFileAttributes;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class CommandQuests implements TabExecutor {
 
@@ -372,24 +386,19 @@ public class CommandQuests implements TabExecutor {
                 if (args.length >= 3) {
                     Quest quest = plugin.getQuestManager().getQuestById(args[1]);
                     QPlayer qPlayer = plugin.getPlayerManager().getPlayer(player.getUniqueId());
-
+                    if (qPlayer == null) {
+                        sender.sendMessage(ChatColor.RED + "Your quest progress file has not been loaded yet.");
+                        return true;
+                    }
+                    if (quest == null) {
+                        sender.sendMessage(Messages.COMMAND_QUEST_GENERAL_DOESNTEXIST.getMessage().replace("{quest}", args[1]));
+                    }
                     if (args[2].equalsIgnoreCase("s") || args[2].equalsIgnoreCase("start")) {
-                        if (quest == null) {
-                            sender.sendMessage(Messages.COMMAND_QUEST_START_DOESNTEXIST.getMessage().replace("{quest}", args[1]));
-                        } else {
-                            if (qPlayer == null) {
-                                // shit + fan
-                                sender.sendMessage(ChatColor.RED + "An error occurred finding your player."); //lazy? :)
-                            } else {
-                                qPlayer.getQuestProgressFile().startQuest(quest);
-                            }
-                        }
+                        qPlayer.getQuestProgressFile().startQuest(quest);
                     } else if (args[2].equalsIgnoreCase("c") || args[2].equalsIgnoreCase("cancel")) {
-                        if (qPlayer == null) {
-                            sender.sendMessage(ChatColor.RED + "An error occurred finding your player."); //lazy x2? ;)
-                        } else {
-                            qPlayer.getQuestProgressFile().cancelQuest(quest);
-                        }
+                        qPlayer.getQuestProgressFile().cancelQuest(quest);
+                    } else if (args[2].equalsIgnoreCase("t") || args[2].equalsIgnoreCase("track")) {
+                        qPlayer.getQuestProgressFile().trackQuest(quest);
                     } else {
                         sender.sendMessage(Messages.COMMAND_SUB_DOESNTEXIST.getMessage().replace("{sub}", args[2]));
                     }
@@ -412,6 +421,32 @@ public class CommandQuests implements TabExecutor {
                     }
                     return true;
                 }
+            } else if (sender instanceof Player && (args[0].equalsIgnoreCase("random")) && sender.hasPermission("quests.command.random")) {
+                Player player = (Player) sender;
+                QPlayer qPlayer = plugin.getPlayerManager().getPlayer(player.getUniqueId());
+                if (qPlayer == null) {
+                    sender.sendMessage(ChatColor.RED + "Your quest progress file has not been loaded yet.");
+                    return true;
+                }
+                List<Quest> validQuests = new ArrayList<>();
+                for (Quest quest : plugin.getQuestManager().getQuests().values()) {
+                    if (qPlayer.getQuestProgressFile().canStartQuest(quest) == QuestStartResult.QUEST_SUCCESS) {
+                        validQuests.add(quest);
+                    }
+                }
+
+                if (validQuests.isEmpty()) {
+                    player.sendMessage(Messages.QUEST_RANDOM_NONE.getMessage());
+                    return true;
+                }
+                int random = ThreadLocalRandom.current().nextInt(0, validQuests.size());
+                qPlayer.getQuestProgressFile().startQuest(validQuests.get(random));
+                return true;
+            } else if (sender instanceof Player && (args[0].equalsIgnoreCase("started"))) {
+                Player player = (Player) sender;
+                QPlayer qPlayer = plugin.getPlayerManager().getPlayer(player.getUniqueId());
+                qPlayer.openStartedQuests();
+                return true;
             }
             showHelp(sender);
         } else {
@@ -478,7 +513,7 @@ public class CommandQuests implements TabExecutor {
         sender.sendMessage(ChatColor.GRAY + "The following commands are available: ");
         sender.sendMessage(ChatColor.DARK_GRAY + " * " + ChatColor.RED + "/quests " + ChatColor.DARK_GRAY + ": show quests");
         sender.sendMessage(ChatColor.DARK_GRAY + " * " + ChatColor.RED + "/quests c/category <categoryid> " + ChatColor.DARK_GRAY + ": open category by ID");
-        sender.sendMessage(ChatColor.DARK_GRAY + " * " + ChatColor.RED + "/quests q/quest <questid> <start/cancel>" + ChatColor.DARK_GRAY + ": start or cancel quest by ID");
+        sender.sendMessage(ChatColor.DARK_GRAY + " * " + ChatColor.RED + "/quests q/quest <questid> <start|cancel|track>" + ChatColor.DARK_GRAY + ": start, cancel or track quest by ID");
         sender.sendMessage(ChatColor.DARK_GRAY + " * " + ChatColor.RED + "/quests a/admin " + ChatColor.DARK_GRAY + ": view help for admins");
         sender.sendMessage(ChatColor.GRAY.toString() + ChatColor.STRIKETHROUGH + "--------=[" + ChatColor.RED + " made with <3 by LMBishop " + ChatColor
                 .GRAY.toString() + ChatColor.STRIKETHROUGH + "]=--------");
@@ -555,9 +590,12 @@ public class CommandQuests implements TabExecutor {
         }
         if (sender instanceof Player) {
             if (args.length == 1) {
-                List<String> options = new ArrayList<>(Arrays.asList("quest", "category"));
+                List<String> options = new ArrayList<>(Arrays.asList("quest", "category", "started"));
                 if (sender.hasPermission("quests.admin")) {
                     options.add("admin");
+                }
+                if (sender.hasPermission("quests.command.random")) {
+                    options.add("random");
                 }
                 return matchTabComplete(args[0], options);
             } else if (args.length == 2) {
@@ -575,7 +613,7 @@ public class CommandQuests implements TabExecutor {
                     && sender.hasPermission("quests.admin")) {
                     Quest q = plugin.getQuestManager().getQuestById(args[1]);
                     if (q != null) {
-                        List<String> options = Arrays.asList("start", "cancel");
+                        List<String> options = Arrays.asList("start", "cancel", "track");
                         return matchTabComplete(args[2], options);
                     }
                 } else if (args[0].equalsIgnoreCase("a") || args[0].equalsIgnoreCase("admin")

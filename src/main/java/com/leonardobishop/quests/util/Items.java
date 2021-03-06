@@ -1,4 +1,4 @@
-package com.leonardobishop.quests.obj;
+package com.leonardobishop.quests.util;
 
 import com.leonardobishop.quests.Quests;
 import org.bukkit.inventory.ItemStack;
@@ -13,6 +13,7 @@ public enum Items {
     PAGE_PREV("gui.page-prev"),
     PAGE_NEXT("gui.page-next"),
     PAGE_DESCRIPTION("gui.page-desc"),
+    NO_STARTED_QUESTS("gui.no-started-quests"),
     QUEST_CANCEL_YES("gui.quest-cancel-yes"),
     QUEST_CANCEL_NO("gui.quest-cancel-no"),
     QUEST_CANCEL_BACKGROUND("gui.quest-cancel-background");

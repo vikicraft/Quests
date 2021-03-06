@@ -1,13 +1,15 @@
 package com.leonardobishop.quests.player;
 
 import com.leonardobishop.quests.Quests;
-import com.leonardobishop.quests.events.EventInventory;
-import com.leonardobishop.quests.obj.Options;
-import com.leonardobishop.quests.obj.misc.QMenuCategory;
-import com.leonardobishop.quests.obj.misc.QMenuQuest;
+import com.leonardobishop.quests.events.MenuController;
+import com.leonardobishop.quests.menu.QMenuCategory;
+import com.leonardobishop.quests.menu.QMenuQuest;
+import com.leonardobishop.quests.menu.QMenuStarted;
+import com.leonardobishop.quests.menu.QuestSortWrapper;
 import com.leonardobishop.quests.player.questprogressfile.QuestProgressFile;
 import com.leonardobishop.quests.quests.Category;
 import com.leonardobishop.quests.quests.Quest;
+import com.leonardobishop.quests.util.Options;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
 
@@ -22,7 +24,7 @@ public class QPlayer {
     private final QuestProgressFile questProgressFile;
     private final Quests plugin;
 
-    public QPlayer(UUID uuid, QuestProgressFile questProgressFile,  Quests plugin) {
+    public QPlayer(UUID uuid, QuestProgressFile questProgressFile, Quests plugin) {
         this.uuid = uuid;
         this.questProgressFile = questProgressFile;
         this.plugin = plugin;
@@ -73,7 +75,7 @@ public class QPlayer {
         }
 
         player.openInventory(qMenuQuest.toInventory(1));
-        EventInventory.track(this.uuid, qMenuQuest);
+        MenuController.track(this.uuid, qMenuQuest);
         return 0;
     }
 
@@ -104,7 +106,7 @@ public class QPlayer {
             qMenuCategory.populate(questMenus);
 
             player.openInventory(qMenuCategory.toInventory(1));
-            EventInventory.track(player.getUniqueId(), qMenuCategory);
+            MenuController.track(player.getUniqueId(), qMenuCategory);
         } else {
             QMenuQuest qMenuQuest = new QMenuQuest(plugin, plugin.getPlayerManager().getPlayer(player.getUniqueId()), "", null);
             List<Quest> quests = new ArrayList<>();
@@ -115,8 +117,28 @@ public class QPlayer {
             qMenuQuest.setBackButtonEnabled(false);
 
             player.openInventory(qMenuQuest.toInventory(1));
-            EventInventory.track(player.getUniqueId(), qMenuQuest);
+            MenuController.track(player.getUniqueId(), qMenuQuest);
         }
+    }
+
+    public void openStartedQuests() {
+        if (this.uuid == null) {
+            return;
+        }
+        Player player = Bukkit.getPlayer(this.uuid);
+        if (player == null) {
+            return;
+        }
+
+        QMenuStarted qMenuStarted = new QMenuStarted(plugin, plugin.getPlayerManager().getPlayer(player.getUniqueId()));
+        List<QuestSortWrapper> quests = new ArrayList<>();
+        for (Map.Entry<String, Quest> entry : plugin.getQuestManager().getQuests().entrySet()) {
+            quests.add(new QuestSortWrapper(plugin, entry.getValue()));
+        }
+        qMenuStarted.populate(quests);
+
+        player.openInventory(qMenuStarted.toInventory(1));
+        MenuController.track(player.getUniqueId(), qMenuStarted);
     }
 
     public QuestProgressFile getQuestProgressFile() {

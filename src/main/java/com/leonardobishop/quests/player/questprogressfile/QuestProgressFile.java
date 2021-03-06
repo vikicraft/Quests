@@ -3,21 +3,30 @@ package com.leonardobishop.quests.player.questprogressfile;
 import com.leonardobishop.quests.Quests;
 import com.leonardobishop.quests.api.QuestsAPI;
 import com.leonardobishop.quests.api.enums.QuestStartResult;
-import com.leonardobishop.quests.api.events.*;
-import com.leonardobishop.quests.obj.Messages;
-import com.leonardobishop.quests.obj.Options;
+import com.leonardobishop.quests.api.events.PlayerCancelQuestEvent;
+import com.leonardobishop.quests.api.events.PlayerFinishQuestEvent;
+import com.leonardobishop.quests.api.events.PlayerStartQuestEvent;
+import com.leonardobishop.quests.api.events.PlayerStartTrackQuestEvent;
+import com.leonardobishop.quests.api.events.PlayerStopTrackQuestEvent;
+import com.leonardobishop.quests.api.events.PreStartQuestEvent;
 import com.leonardobishop.quests.player.QPlayer;
 import com.leonardobishop.quests.quests.Quest;
 import com.leonardobishop.quests.quests.Task;
+import com.leonardobishop.quests.util.Messages;
+import com.leonardobishop.quests.util.Options;
 import org.bukkit.Bukkit;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.YamlConfiguration;
 import org.bukkit.entity.Player;
-import org.bukkit.scheduler.BukkitTask;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.TimeUnit;
 
 public class QuestProgressFile {
@@ -33,6 +42,16 @@ public class QuestProgressFile {
         this.plugin = plugin;
     }
 
+    /**
+     * Attempt to complete a quest for the player. This will also play all effects (such as titles, messages etc.)
+     * and also dispatches all rewards for the player.
+     *
+     * Warning: rewards will not be sent and the {@link PlayerFinishQuestEvent} will not be fired if the
+     * player is not online
+     *
+     * @param quest the quest to complete
+     * @return true (always)
+     */
     public boolean completeQuest(Quest quest) {
         QuestProgress questProgress = getQuestProgress(quest);
         questProgress.setStarted(false);
@@ -73,24 +92,37 @@ public class QuestProgressFile {
         return true;
     }
 
+    /**
+     * Attempt to track a quest for the player. This will also play all effects (such as titles, messages etc.)
+     *
+     * Warning: {@link PlayerStopTrackQuestEvent} is not fired if the player is not online
+     *
+     * @param quest the quest to track
+     */
     public void trackQuest(Quest quest) {
         Player player = Bukkit.getPlayer(playerUUID);
         if (quest == null) {
+            String currentTrackedQuestId = playerPreferences.getTrackedQuestId();
             playerPreferences.setTrackedQuestId(null);
             if (player != null) {
                 Bukkit.getPluginManager().callEvent(new PlayerStopTrackQuestEvent(player, this));
+                Quest currentTrackedQuest;
+                if (currentTrackedQuestId != null && (currentTrackedQuest = plugin.getQuestManager().getQuestById(currentTrackedQuestId)) != null) {
+                    player.sendMessage(Messages.QUEST_TRACK_STOP.getMessage().replace("{quest}", currentTrackedQuest.getDisplayNameStripped()));
+                }
             }
         } else if (hasStartedQuest(quest)) {
             playerPreferences.setTrackedQuestId(quest.getId());
             if (player != null) {
                 Bukkit.getPluginManager().callEvent(new PlayerStartTrackQuestEvent(player, this));
+                player.sendMessage(Messages.QUEST_TRACK.getMessage().replace("{quest}", quest.getDisplayNameStripped()));
             }
         }
     }
 
     /**
      * Check if the player can start a quest.
-     * <p>
+     *
      * Warning: will fail if the player is not online.
      *
      * @param quest the quest to check
@@ -141,12 +173,12 @@ public class QuestProgressFile {
     }
 
     /**
-     * Start a quest for the player.
-     * <p>
+     * Attempt to start a quest for the player. This will also play all effects (such as titles, messages etc.)
+     *
      * Warning: will fail if the player is not online.
      *
-     * @param quest the quest to check
-     * @return the quest start result
+     * @param quest the quest to start
+     * @return the quest start result -- {@code QuestStartResult.QUEST_SUCCESS} indicates success
      */
     // TODO PlaceholderAPI support
     public QuestStartResult startQuest(Quest quest) {
@@ -230,6 +262,12 @@ public class QuestProgressFile {
         return code;
     }
 
+    /**
+     * Attempt to cancel a quest for the player. This will also play all effects (such as titles, messages etc.)
+     *
+     * @param quest the quest to start
+     * @return true if the quest was cancelled, false otherwise
+     */
     public boolean cancelQuest(Quest quest) {
         QuestProgress questProgress = getQuestProgress(quest);
         Player player = Bukkit.getPlayer(this.playerUUID);
@@ -260,6 +298,13 @@ public class QuestProgressFile {
         this.questProgress.put(questProgress.getQuestId(), questProgress);
     }
 
+    /**
+     * Gets all started quests.
+     * Note: if quest autostart is enabled then this may produce unexpected results as quests are
+     * not "started" by the player if autostart is true. Consider {@link #hasStartedQuest(Quest)} instead.
+     *
+     * @return
+     */
     public List<Quest> getStartedQuests() {
         List<Quest> startedQuests = new ArrayList<>();
         for (QuestProgress questProgress : questProgress.values()) {
@@ -271,19 +316,7 @@ public class QuestProgressFile {
     }
 
     /**
-     * @return {@code List<Quest>} all quest
-     * @deprecated use {@code getAllQuestsFromProgress(QuestsProgressFilter)} instead
-     * <p>
-     * Returns all {@code Quest}s a player has encountered
-     * (not to be confused with a collection of quest progress)
-     */
-    @Deprecated
-    public List<Quest> getQuestsProgress(String filter) {
-        return getAllQuestsFromProgress(QuestsProgressFilter.fromLegacy(filter));
-    }
-
-    /**
-     * Returns all {@code Quest}s a player has encountered
+     * Returns all {@link Quest} a player has encountered
      * (not to be confused with a collection of quest progress)
      *
      * @return {@code List<Quest>} all quests
@@ -344,10 +377,22 @@ public class QuestProgressFile {
         return questProgress.values();
     }
 
+    /**
+     * Checks whether or not the player has {@link QuestProgress} for a specified quest
+     *
+     * @param quest the quest to check for
+     * @return true if they have quest progress
+     */
     public boolean hasQuestProgress(Quest quest) {
         return questProgress.containsKey(quest.getId());
     }
 
+    /**
+     * Gets whether or not the player has started a specific quest.
+     *
+     * @param quest the quest to test for
+     * @return true if the quest is started or quest autostart is enabled and the quest is ready to start, false otherwise
+     */
     public boolean hasStartedQuest(Quest quest) {
         if (Options.QUEST_AUTOSTART.getBooleanValue()) {
             QuestStartResult response = canStartQuest(quest);
@@ -357,6 +402,12 @@ public class QuestProgressFile {
         }
     }
 
+    /**
+     * Gets the remaining cooldown before being able to start a specific quest.
+     *
+     * @param quest the quest to test for
+     * @return 0 if no cooldown remaining or the cooldown is disabled, otherwise the cooldown in milliseconds
+     */
     public long getCooldownFor(Quest quest) {
         QuestProgress questProgress = getQuestProgress(quest);
         if (quest.isCooldownEnabled() && questProgress.isCompleted()) {
@@ -368,6 +419,12 @@ public class QuestProgressFile {
         return 0;
     }
 
+    /**
+     * Tests whether or not the player meets the requirements to start a specific quest.
+     *
+     * @param quest the quest to test for
+     * @return true if they can start the quest
+     */
     public boolean hasMetRequirements(Quest quest) {
         for (String id : quest.getRequirements()) {
             Quest q = plugin.getQuestManager().getQuestById(id);
@@ -383,10 +440,21 @@ public class QuestProgressFile {
         return true;
     }
 
+    /**
+     * Get the {@link UUID} of the player this QuestProgressFile represents
+     *
+     * @return UUID
+     */
     public UUID getPlayerUUID() {
         return playerUUID;
     }
 
+    /**
+     * Get the {@link QuestProgress} for a specified {@link Quest}, and generates a new one if it does not exist
+     *
+     * @param quest the quest to get progress for
+     * @return {@link QuestProgress} or null if the quest does not exist
+     */
     public QuestProgress getQuestProgress(Quest quest) {
         if (questProgress.containsKey(quest.getId())) {
             return questProgress.get(quest.getId());
@@ -396,6 +464,13 @@ public class QuestProgressFile {
         return null;
     }
 
+    /**
+     * Generate a new blank {@link QuestProgress} for a specified {@code questid}.
+     * Has no effect if there is already an existing {@link QuestProgress} for {@code questid}.
+     *
+     * @param questid the quest to generate progress for
+     * @return true if successful
+     */
     public boolean generateBlankQuestProgress(String questid) {
         if (plugin.getQuestManager().getQuestById(questid) != null) {
             Quest quest = plugin.getQuestManager().getQuestById(questid);
@@ -415,12 +490,29 @@ public class QuestProgressFile {
         return playerPreferences;
     }
 
+    /**
+     * Save the quest progress file to disk at /playerdata/[uuid]. Must be invoked from the main thread.
+     *
+     * @param async save the file asynchronously
+     */
     public void saveToDisk(boolean async) {
-        plugin.getQuestsLogger().debug("Saving player " + playerUUID + " to disk.");
+        plugin.getQuestsLogger().debug("Saving player " + playerUUID + " to disk. Main thread: " + async);
+        List<QuestProgress> questProgressValues = new ArrayList<>(questProgress.values());
         File directory = new File(plugin.getDataFolder() + File.separator + "playerdata");
         if (!directory.exists() && !directory.isDirectory()) {
             directory.mkdirs();
         }
+
+        if (async) {
+            Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
+                save(questProgressValues);
+            });
+        } else {
+            save(questProgressValues);
+        }
+    }
+
+    private void save(List<QuestProgress> questProgressValues) {
         File file = new File(plugin.getDataFolder() + File.separator + "playerdata" + File.separator + playerUUID.toString() + ".yml");
         if (!file.exists()) {
             try {
@@ -432,7 +524,7 @@ public class QuestProgressFile {
 
         YamlConfiguration data = YamlConfiguration.loadConfiguration(file);
         data.set("quest-progress", null);
-        for (QuestProgress questProgress : questProgress.values()) {
+        for (QuestProgress questProgress : questProgressValues) {
             data.set("quest-progress." + questProgress.getQuestId() + ".started", questProgress.isStarted());
             data.set("quest-progress." + questProgress.getQuestId() + ".completed", questProgress.isCompleted());
             data.set("quest-progress." + questProgress.getQuestId() + ".completed-before", questProgress.isCompletedBefore());
@@ -444,25 +536,10 @@ public class QuestProgressFile {
                         .getProgress());
             }
         }
-//
-        synchronized (this) {
-
-            // TODO
-            if (async && Options.QUEST_AUTOSAVE_ASYNC.getBooleanValue()) {
-                Bukkit.getScheduler().runTaskAsynchronously(plugin, () -> {
-                    try {
-                        data.save(file);
-                    } catch (IOException e) {
-                        e.printStackTrace();
-                    }
-                });
-            } else {
-                try {
-                    data.save(file);
-                } catch (IOException e) {
-                    e.printStackTrace();
-                }
-            }
+        try {
+            data.save(file);
+        } catch (IOException e) {
+            e.printStackTrace();
         }
     }
 
@@ -471,7 +548,7 @@ public class QuestProgressFile {
     }
 
     /**
-     * Removes any references to quests or tasks which are no longer defined in the config
+     * Removes any references to quests or tasks which are no longer defined in the config.
      */
     public void clean() {
         plugin.getQuestsLogger().debug("Cleaning file " + playerUUID + ".");

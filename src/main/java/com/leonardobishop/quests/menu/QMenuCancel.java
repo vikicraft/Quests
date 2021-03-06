@@ -1,27 +1,27 @@
-package com.leonardobishop.quests.obj.misc;
+package com.leonardobishop.quests.menu;
 
-import com.leonardobishop.quests.obj.Items;
-import com.leonardobishop.quests.obj.Options;
+import com.leonardobishop.quests.events.MenuController;
 import com.leonardobishop.quests.player.QPlayer;
 import com.leonardobishop.quests.quests.Quest;
+import com.leonardobishop.quests.util.Items;
+import com.leonardobishop.quests.util.Options;
 import org.bukkit.Bukkit;
+import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 
 public class QMenuCancel implements QMenu {
 
     private final HashMap<Integer, String> slotsToQuestIds = new HashMap<>();
-    private final QMenuQuest superMenu;
+    private final QMenu superMenu;
     private final QPlayer owner;
     private final Quest quest;
 
-    public QMenuCancel(QPlayer owner, QMenuQuest superMenu, Quest quest) {
+    public QMenuCancel(QPlayer owner, QMenu superMenu, Quest quest) {
         this.owner = owner;
         this.superMenu = superMenu;
         this.quest = quest;
@@ -31,7 +31,6 @@ public class QMenuCancel implements QMenu {
         /* ignored */
     }
 
-    @Override
     public HashMap<Integer, String> getSlotsToMenu() {
         return slotsToQuestIds;
     }
@@ -45,7 +44,7 @@ public class QMenuCancel implements QMenu {
         return owner;
     }
 
-    public Inventory toInventory() {
+    public Inventory toInventory(int page) {
         String title = Options.color(Options.GUITITLE_QUEST_CANCEL.getStringValue());
 
         ItemStack yes = Items.QUEST_CANCEL_YES.getItem();
@@ -73,7 +72,21 @@ public class QMenuCancel implements QMenu {
         return inventory;
     }
 
-    public QMenuQuest getSuperMenu() {
+    @Override
+    public void handleClick(InventoryClickEvent event, MenuController controller) {
+        if (event.getSlot() == 10 || event.getSlot() == 11 || event.getSlot() == 12) {
+            QMenu qSuperMenu = this.getSuperMenu();
+            controller.getBuffer().add(event.getWhoClicked().getUniqueId());
+            event.getWhoClicked().openInventory(qSuperMenu.toInventory(1));
+            controller.getTracker().put(event.getWhoClicked().getUniqueId(), qSuperMenu);
+        } else if (event.getSlot() == 14 || event.getSlot() == 15 || event.getSlot() == 16) {
+            if (this.getOwner().getQuestProgressFile().cancelQuest(this.getQuest())) {
+                event.getWhoClicked().closeInventory();
+            }
+        }
+    }
+
+    public QMenu getSuperMenu() {
         return superMenu;
     }
 

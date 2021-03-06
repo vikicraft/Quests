@@ -66,11 +66,15 @@ public final class BrewingTaskType extends TaskType {
         if ((uuid = brewingStands.get(event.getBlock().getLocation())) != null) {
             Player player = Bukkit.getPlayer(uuid);
 
-            if (player == null || !player.hasMetadata("NPC")) {
+            if (player == null || player.hasMetadata("NPC")) {
                 return;
             }
 
-            QPlayer qPlayer = QuestsAPI.getPlayerManager().getPlayer(player.getUniqueId(), true);
+            QPlayer qPlayer = QuestsAPI.getPlayerManager().getPlayer(player.getUniqueId());
+            if (qPlayer == null) {
+                return;
+            }
+
             QuestProgressFile questProgressFile = qPlayer.getQuestProgressFile();
 
             for (Quest quest : super.getRegisteredQuests()) {
