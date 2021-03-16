@@ -76,22 +76,33 @@ import java.util.ArrayList;
 public class Quests extends JavaPlugin {
 
     private static Quests instance;
-    private static Updater updater;
 
+    /** Handles anything to do with loaded quests */
     private QuestManager questManager;
-    private QPlayerManager qPlayerManager;
+    /** Handles anything to do with task types */
     private TaskTypeManager taskTypeManager;
+    /** Handles anything to do with players */
+    private QPlayerManager qPlayerManager;
 
+    /** Checks and records ready plugin updates */
+    private Updater updater;
+    /** Abstract title handle to allow for cross version compatibility */
     private Title titleHandle;
+    /** Abstract item handle to allow for cross version compatibility */
     private ItemGetter itemGetter;
+    /** Task which checks quests and marks them as complete if requirements are satisfied */
     private QuestCompleter questCompleter;
+    /** Loads configurations and tracks errors */
     private QuestsConfigLoader questsConfigLoader;
+    /** Quests logger to allow for configurable logging levels */
     private QuestsLogger questsLogger;
+    /** Handles menu tracking and clicks */
     private MenuController menuController;
 
     private IPlaceholderAPIHook placeholderAPIHook;
     private ICoreProtectHook coreProtectHook;
 
+    /** If true, the plugin should be inoperable */
     private boolean brokenConfig = false;
     private BukkitTask questAutosaveTask;
     private BukkitTask questQueuePollTask;
@@ -159,8 +170,8 @@ public class Quests extends JavaPlugin {
         qPlayerManager = new QPlayerManager(this);
         menuController = new MenuController(this);
 
-        dataGenerator();
-        setupVersionSpecific();
+        this.generateConfigurations();
+        this.setupVersionSpecific();
 
         Bukkit.getPluginCommand("quests").setExecutor(new CommandQuests(this));
         Bukkit.getPluginManager().registerEvents(new EventPlayerJoin(this), this);
@@ -262,7 +273,7 @@ public class Quests extends JavaPlugin {
         } catch (Throwable ignored) { }
 
 
-        updater = new Updater(this);
+        updater = new Updater(this, !ignoreUpdates);
         if (!ignoreUpdates) {
             Bukkit.getScheduler().runTaskAsynchronously(this, () -> {
                 updater.check();
@@ -312,9 +323,7 @@ public class Quests extends JavaPlugin {
             }
         }
         if (autosaveTaskCancelled) {
-            questAutosaveTask = Bukkit.getScheduler().runTaskTimer(this, () -> {
-                new QuestsAutosaveRunnable(this);
-            }, autosaveInterval, autosaveInterval);
+            questAutosaveTask = Bukkit.getScheduler().runTaskTimer(this, () -> new QuestsAutosaveRunnable(this), autosaveInterval, autosaveInterval);
         }
 
         boolean queuePollTaskCancelled = true;
@@ -382,7 +391,7 @@ public class Quests extends JavaPlugin {
         }
     }
 
-    private void dataGenerator() {
+    private void generateConfigurations() {
         File directory = new File(String.valueOf(this.getDataFolder()));
         if (!directory.exists() && !directory.isDirectory()) {
             directory.mkdir();
@@ -392,7 +401,6 @@ public class Quests extends JavaPlugin {
         if (!config.exists()) {
             try {
                 config.createNewFile();
-                //try (InputStream in = Quests.class.getClassLoader().getResourceAsStream("config.yml")) {
                 try (InputStream in = this.getResource("config.yml")) {
                     OutputStream out = new FileOutputStream(config);
                     byte[] buffer = new byte[1024];
@@ -401,7 +409,6 @@ public class Quests extends JavaPlugin {
                         out.write(buffer, 0, lenght);
                         lenght = in.read(buffer);
                     }
-                    //ByteStreams.copy(in, out); BETA method, data losses ahead
                 } catch (IOException e) {
                     e.printStackTrace();
                 }
@@ -428,7 +435,6 @@ public class Quests extends JavaPlugin {
                 File file = new File(this.getDataFolder() + File.separator + "quests" + File.separator + name);
                 try {
                     file.createNewFile();
-                    //try (InputStream in = Quests.class.getClassLoader().getResourceAsStream("quests/" + name)) {
                     try (InputStream in = this.getResource("quests/" + name)) {
                         OutputStream out = new FileOutputStream(file);
                         byte[] buffer = new byte[1024];
@@ -437,7 +443,6 @@ public class Quests extends JavaPlugin {
                             out.write(buffer, 0, lenght);
                             lenght = in.read(buffer);
                         }
-                        //ByteStreams.copy(in, out); BETA method, data losses ahead
                     } catch (IOException e) {
                         e.printStackTrace();
                     }
