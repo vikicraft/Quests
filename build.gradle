@@ -41,6 +41,8 @@ repositories {
     maven { url = 'https://maven.playpro.com/' }
     // bStats
     maven { url = uri('https://repo.codemc.org/repository/maven-public') }
+    // BG Software
+    maven { url 'https://repo.bg-software.com/repository/api/' }
     mavenCentral()
 }
 
@@ -90,6 +92,8 @@ dependencies {
     }
     // bStats
     implementation 'org.bstats:bstats-bukkit-lite:1.8'
+    // SuperiorSkyblock
+    compileOnly 'com.bgsoftware:SuperiorSkyblockAPI:latest'
 
     compileOnly fileTree(dir: 'libs', includes: ['*.jar'])
 }

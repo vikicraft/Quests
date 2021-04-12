@@ -53,6 +53,7 @@ import com.leonardobishop.quests.quests.tasktypes.types.dependent.EssentialsBala
 import com.leonardobishop.quests.quests.tasktypes.types.dependent.EssentialsMoneyEarnTaskType;
 import com.leonardobishop.quests.quests.tasktypes.types.dependent.MythicMobsKillingType;
 import com.leonardobishop.quests.quests.tasktypes.types.dependent.PlaceholderAPIEvaluateTaskType;
+import com.leonardobishop.quests.quests.tasktypes.types.dependent.SSBLevelType;
 import com.leonardobishop.quests.quests.tasktypes.types.dependent.ShopGUIPlusBuyCertainTaskType;
 import com.leonardobishop.quests.quests.tasktypes.types.dependent.ShopGUIPlusSellCertainTaskType;
 import com.leonardobishop.quests.quests.tasktypes.types.dependent.uSkyBlockLevelType;
@@ -239,6 +240,9 @@ public class Quests extends JavaPlugin {
                 // not tested
                 taskTypeManager.registerTaskType(new ShopGUIPlusBuyCertainTaskType());
                 taskTypeManager.registerTaskType(new ShopGUIPlusSellCertainTaskType());
+            }
+            if (Bukkit.getPluginManager().isPluginEnabled("SuperiorSkyblock2")) {
+                taskTypeManager.registerTaskType(new SSBLevelType());
             }
 
             taskTypeManager.closeRegistrations();
