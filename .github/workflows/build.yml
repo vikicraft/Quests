@@ -1,4 +1,4 @@
-name: Build Plugin
+name: Build plugin
 
 on: ["pull_request", "push"]
 
@@ -32,7 +32,7 @@ jobs:
       - name: Grant execute permission for gradlew
         run: chmod +x gradlew
       - name: Build with Gradle
-        run: ./gradlew build
+        run: ./gradlew allJar
       - name: Upload Plugin
         uses: actions/upload-artifact@master
         with:
